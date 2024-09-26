@@ -1,0 +1,36 @@
+# Configuration for building package
+
+[build-system]
+build-backend = "setuptools.build_meta"
+requires = ["setuptools"]
+
+[project]
+authors = [{name = "Daniel Luo", email = "dan.luo1996@gmail.com"}]
+description = "Triton kernels"
+name = "tk"
+readme = "README.md"
+requires-python = ">=3.8.19"
+version = "0.0.1"
+dependencies = [
+    "torch", 
+    "triton",
+    "torchvision",
+    "matplotlib",
+]
+
+[tool.isort]
+include_trailing_comma = true
+line_length = 88
+multi_line_output = 3  # How imports are formatted when they span multiple lines
+profile = "black"
+py_version = 39
+use_parentheses = true
+
+[tool.setuptools]
+include-package-data = true
+
+[tool.setuptools.package-data]
+where = ["*.tsv*"]
+
+[tool.setuptools.packages]
+find = {}  # For more details about how to link packages see https://setuptools.pypa.io/en/latest/userguide/pyproject_config.html
