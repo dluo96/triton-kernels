@@ -35,11 +35,20 @@ def kernel_naive_matmul(
     offsets_a = a_ptr + get_2d_offset(offsets_m, offsets_k, stride_am, stride_ak)
     offsets_b = b_ptr + get_2d_offset(offsets_k, offsets_n, stride_bk, stride_bn)
 
-    # Initialise and iteratively update accumulator
+    # Horizontal and vertical masks
+    mask_m = offsets_m < m
+    mask_n = offsets_n < n
+    mask_k = offsets_k < k
+
+    # Combine masks
+    mask_a = get_2d_mask(offsets_m, offsets_k, m, k)
+    mask_b = get_2d_mask(offsets_k, offsets_n, k, n)
+
+    # Initialise and iteratively update accumulator (loop over phases)
     accumulator = tl.zeros((bm, bn), dtype=tl.float32)
     for _ in range(0, k, bk):
-        a = tl.load(offsets_a)
-        b = tl.load(offsets_b)
+        a = tl.load(offsets_a, mask=mask_a)
+        b = tl.load(offsets_b, mask=mask_b)
         accumulator += tl.dot(a, b)
 
         # Increase offsets so that the next iteration loads the next chunks
