@@ -56,7 +56,7 @@ def kernel_rgb_to_grey(
     tl.store(out_ptr + offsets, out, mask=mask)
 
 
-def rgb_to_grey(x, block_size):
+def rgb_to_grey(x: torch.Tensor, block_size: tuple[int, int]) -> torch.Tensor:
     C, H, W = x.shape
 
     # Allocate space for output
