@@ -17,6 +17,7 @@ dependencies = [
     "torchvision",
     "matplotlib",
     "pre-commit",
+    "jupyter",
 ]
 
 [tool.isort]
