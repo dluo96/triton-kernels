@@ -5,9 +5,6 @@ import torch
 import triton
 import triton.language as tl
 
-# Allow debugging of the Triton kernel.
-# os.environ["TRITON_INTERPRET"] = "1"
-
 
 @triton.jit
 def kernel_add_vectors(

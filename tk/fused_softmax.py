@@ -13,9 +13,6 @@ WARP_SIZE = properties["warpSize"]
 target = triton.runtime.driver.active.get_current_target()
 dict_kernels = {}  # Cache precompiled kernels based on their block size
 
-# import os
-# os.environ["TRITON_INTERPRET"] = "1"
-
 
 @triton.jit
 def kernel_softmax(
