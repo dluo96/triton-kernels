@@ -1,0 +1,35 @@
+default_stages: ["pre-commit"]
+default_language_version:
+  python: python3
+
+repos:
+  - repo: https://github.com/timothycrosley/isort
+    rev: 5.13.2
+    hooks:
+      - id: isort
+        name: "Sort imports (isort)"
+
+  - repo: https://github.com/psf/black
+    rev: 23.12.1
+    hooks:
+      - id: black
+        name: "Format code (black)"
+
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.5.0
+    hooks:
+      - id: end-of-file-fixer
+        name: "Ensure files end with a newline (pre-commit)"
+      - id: trailing-whitespace
+        name: "Trim trailing whitespace (pre-commit)"
+        args: [--markdown-linebreak-ext=md] # Trailing whitespaces are part of Markdown syntax
+
+  - repo: https://github.com/pre-commit/mirrors-prettier
+    rev: v4.0.0-alpha.8
+    hooks:
+      - id: prettier
+        name: "Check Markdown (prettier)"
+        args:
+          - --print-width=88
+          - --prose-wrap=always
+          - --tab-width=2

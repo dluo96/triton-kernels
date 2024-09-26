@@ -12,10 +12,11 @@ readme = "README.md"
 requires-python = ">=3.8.19"
 version = "0.0.1"
 dependencies = [
-    "torch", 
+    "torch",
     "triton",
     "torchvision",
     "matplotlib",
+    "pre-commit",
 ]
 
 [tool.isort]
