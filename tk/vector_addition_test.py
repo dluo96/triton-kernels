@@ -1,6 +1,6 @@
 import torch
 
-from tk.vector_addition import add
+from tk.vector_addition import add_vectors
 
 
 def test_add():
@@ -10,6 +10,6 @@ def test_add():
     y = torch.rand(size, device="cuda")
 
     output_torch = x + y
-    output_triton = add(x, y)
+    output_triton = add_vectors(x, y)
 
     assert torch.allclose(output_triton, output_torch)
