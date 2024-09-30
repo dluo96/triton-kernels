@@ -6,14 +6,59 @@ import triton.language as tl
 
 @triton.jit
 def get_2d_offset(offsets_0, offsets_1, stride_0, stride_1):
+    """
+    For example, suppose we have the tensor:
+
+                        pid_y
+                 ------------------>
+                |  0  1  2  3  4  5  6
+          pid_x |  7  8  9 10 11 12 13
+                | 14 15 16 17 18 19 20
+                | 21 22 23 24 25 26 27
+    
+    This has
+        - t.stride(0) = 7
+        - t.stride(1) = 1
+    
+    Scenario 1: 
+        - `pid_x = 0` which means `offsets_0` is [0, 1], assuming bs_x = 2.
+        - `pid_y = 0` which means `offsets_1` is [0, 1], assuming bs_y = 2.
+        - The combined 2D offset is:
+                        [[0, 1],
+                         [7, 8]]
+          because:
+                [0] * 7 + [0, 1] = [0] + [0, 1] = [0 0] + [0 1] = [0 1]
+                [1]                [7]            [7 7]   [0 1]   [7 8]
+
+    Scenario 2:
+        - `pid_x = 0` which means `offsets_0` is [0, 1], assuming bs_x = 2.
+        - `pid_y = 3` which means `offsets_1` is [6, 7], assuming bs_y = 2.
+        - The combined 2D offset is:
+                        [[ 6,  7],
+                         [13, 14]]
+            because:
+                [0] * 7 + [6, 7] = [0] + [6, 7] = [0 0] + [6 7] = [ 6  7]
+                [1]                [7]            [7 7]   [6 7]   [13 14]
+    
+    Scenario 3:
+        - `pid_x = 1` which means `offsets_0` is [2, 3], assuming bs_x = 2.
+        - `pid_y = 0` which means `offsets_1` is [0, 1, 2], assuming bs_y = 3.
+        - The combined 2D offset is:
+                        [[14, 15, 16],
+                         [21, 22, 23]]
+          because:
+            [2] * 7 + [0, 1, 2] = [14] + [0, 1, 2] = [14 14 14] + [0 1 2] = [14 15 16]
+            [3]                   [21]               [21 21 21]   [0 1 2]   [21 22 23]
+    """
     return tl.expand_dims(offsets_0, axis=1) * stride_0 + tl.expand_dims(offsets_1, axis=0) * stride_1
 
 @triton.jit
 def get_2d_mask(offsets_0, offsets_1, max_0, max_1):
     return (tl.expand_dims(offsets_0, axis=1) < max_0) & (tl.expand_dims(offsets_1, axis=0) < max_1)
 
+
 @triton.jit
-def kernel_naive_matmul(
+def kernel_matmul_naive(
     a_ptr, b_ptr, c_ptr,
     m, n, k,
     stride_am, stride_ak,
@@ -73,7 +118,7 @@ def matmul(a, b, kernel_matmul, bs=16, group_size=None):
     grid = lambda meta: (triton.cdiv(m, meta["bm"]), triton.cdiv(n, meta["bn"]))
 
     # Call kernel
-    kernel_naive_matmul[grid](
+    kernel_matmul[grid](
         a, b, c,
         m, n, k,
         a.stride(0), a.stride(1),
@@ -82,3 +127,4 @@ def matmul(a, b, kernel_matmul, bs=16, group_size=None):
         bm=bs, bn=bs, bk=bs,
     )
     return c
+
