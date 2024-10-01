@@ -143,6 +143,7 @@ def kernel_matmul_naive(
     stride_bk, stride_bn,
     stride_cm, stride_cn,
     bm: tl.constexpr, bn: tl.constexpr, bk: tl.constexpr,
+    group_size_m: tl.constexpr  # Only need in grouped matmul, not here
 ):
     """Compute matrix multiplication of `a` (m, k) and `b` (k, n) to get output matrix (m, n)."""
     # Get program IDs which determine which section of the output matrix `c` (m x n) to compute
@@ -183,6 +184,50 @@ def kernel_matmul_naive(
     tl.store(c, accumulator, mask=mask)
 
 
+@triton.jit
+def kernel_matmul_grouped(
+    a_ptr, b_ptr, c_ptr,
+    m, n, k,
+    stride_am, stride_ak,
+    stride_bk, stride_bn,
+    stride_cm, stride_cn,
+    bm: tl.constexpr, bn: tl.constexpr, bk: tl.constexpr,
+    group_size_m: tl.constexpr
+):
+    pid_m = tl.program_id(axis=0)
+    pid_n = tl.program_id(axis=1)
+    num_pid_m = tl.num_programs(axis=0)
+    num_pid_n = tl.num_programs(axis=1)
+
+    # Swizzle: this reordering of blocks can increase L2-cache hit rate and 
+    # thus make our kernel faster
+    pid_m, pid_n = tl.swizzle2d(pid_m, pid_n, num_pid_m, num_pid_n, group_size_m)
+
+    # Get offsets in m/n/k dimensions
+    offsets_m = pid_m * bm + tl.arange(0, bm)
+    offsets_n = pid_n * bn + tl.arange(0, bn)
+    offsets_k = tl.arange(0, bk)
+
+    # Get offsets for input matrices `a` and `b`
+    offsets_a = a_ptr + get_2d_offset(offsets_m, offsets_k, stride_am, stride_ak)
+    offsets_b = b_ptr + get_2d_offset(offsets_k, offsets_n, stride_bk, stride_bn)
+
+    # Initialise and iteratively update accumulator (loop over phases)
+    accumulator = tl.zeros((bm, bn), dtype=tl.float32)
+    for _ in range(0, k, bk):
+        a = tl.load(offsets_a)
+        b = tl.load(offsets_b)
+        accumulator += tl.dot(a, b)
+
+        # Increase offsets so that the next iteration loads the next chunks
+        offsets_a += bk * stride_ak
+        offsets_b += bk * stride_bk
+
+    c = c_ptr + get_2d_offset(offsets_m, offsets_n, stride_cm, stride_cn)
+    mask = get_2d_mask(offsets_m, offsets_n, m, n)
+    tl.store(c, accumulator, mask=mask)
+
+
 def matmul(a, b, kernel_matmul, bs=16, group_size=None):
     assert a.shape[1] == b.shape[0], "Input matrix shapes are incompatible for matrix multiplication"
     
@@ -203,6 +248,7 @@ def matmul(a, b, kernel_matmul, bs=16, group_size=None):
         b.stride(0), b.stride(1),
         c.stride(0), c.stride(1),
         bm=bs, bn=bs, bk=bs,
+        group_size_m=group_size,
     )
     return c
 
