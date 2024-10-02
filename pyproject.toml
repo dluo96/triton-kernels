@@ -18,6 +18,7 @@ dependencies = [
     "matplotlib",
     "pre-commit",
     "jupyter",
+    "pandas",
 ]
 
 [tool.isort]
