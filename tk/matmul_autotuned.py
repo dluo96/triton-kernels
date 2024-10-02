@@ -16,7 +16,7 @@ from tk.matmul import get_2d_mask, get_2d_offset
         triton.Config({'bs_m':  64, 'bs_n':  32, 'bs_k': 32, 'group_size_m': 8}, num_stages=5, num_warps=2),
         triton.Config({'bs_m':  32, 'bs_n':  64, 'bs_k': 32, 'group_size_m': 8}, num_stages=5, num_warps=2),
     ],
-    key=["m", "n", "k"],
+    key=["m", "n", "k"],  # Problem size: everytime it changes, all the configs above will be evaluated
 )
 @triton.jit
 def kernel_matmul_grouped_autotuned(
