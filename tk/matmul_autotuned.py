@@ -79,7 +79,7 @@ def matmul_grouped_autotuned(a, b):
         a.stride(0), a.stride(1),
         b.stride(0), b.stride(1),
         c.stride(0), c.stride(1),
-        # bm=bs, bn=bs, bk=bs, <- will be autotuned
-        # **group_sz <- will be autotuned
+        # bs_m=bs, bs_n=bs, bs_k=bs,    <-- This will be autotuned by @triton.autone
+        # group_size_m                  <-- This will be autotuned by @triton.autone
     )
     return c
