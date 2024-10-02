@@ -1,3 +1,5 @@
+import pathlib
+
 import torch
 import triton
 
@@ -49,21 +51,7 @@ def benchmark(size, provider):
 
 
 if __name__ == "__main__":
-    torch.manual_seed(0)
-    size = 98432
-    x = torch.rand(size, device="cuda")
-    y = torch.rand(size, device="cuda")
-    output_torch = x + y
-    output_triton = add_vectors(x, y)
-    print(output_torch)
-    print(output_triton)
-    print(
-        f"The maximum difference between torch and triton is "
-        f"{torch.max(torch.abs(output_torch - output_triton))}"
-    )
-
-    # Compare the performance (specifically the global memory bandwidth) of
-    # our custom Triton kernel and PyTorch's elementwise vector addition.
     benchmark.run(
-        print_data=True, save_path="/home/danielluo/cuda-c/benchmarks/vector_addition/"
+        print_data=True,
+        save_path=pathlib.Path(__file__).parent / "profiling" / "vector_addition",
     )
