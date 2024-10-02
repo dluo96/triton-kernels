@@ -1,7 +1,3 @@
-import os
-
-os.environ["TRITON_INTERPRET"] = "1"
-
 import unittest
 
 import torch
