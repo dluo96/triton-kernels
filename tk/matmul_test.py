@@ -5,8 +5,6 @@ import torch
 
 from tk.matmul import kernel_matmul_grouped, kernel_matmul_naive, matmul
 
-# os.environ["TRITON_INTERPRET"] = "1"
-
 
 class TestMatmul(unittest.TestCase):
     def setUp(self):
