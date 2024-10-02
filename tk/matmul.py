@@ -10,7 +10,7 @@ def get_2d_offset(offsets_0, offsets_1, stride_0, stride_1):
     For example, suppose we have the tensor:
 
                         pid_y
-                 ------------------>
+                 -------------------->
                 |  0  1  2  3  4  5  6
           pid_x |  7  8  9 10 11 12 13
                 | 14 15 16 17 18 19 20
@@ -142,7 +142,7 @@ def kernel_matmul_naive(
     stride_am, stride_ak,
     stride_bk, stride_bn,
     stride_cm, stride_cn,
-    bm: tl.constexpr, bn: tl.constexpr, bk: tl.constexpr,
+    bs_m: tl.constexpr, bs_n: tl.constexpr, bs_k: tl.constexpr,
     group_size_m: tl.constexpr  # Only need in grouped matmul, not here
 ):
     """Compute matrix multiplication of `a` (m, k) and `b` (k, n) to get output matrix (m, n)."""
@@ -151,9 +151,9 @@ def kernel_matmul_naive(
     pid_n = tl.program_id(axis=1)
 
     # Get offsets in m/n/k dimensions
-    offsets_m = pid_m * bm + tl.arange(0, bm)
-    offsets_n = pid_n * bn + tl.arange(0, bn)
-    offsets_k = tl.arange(0, bk)
+    offsets_m = pid_m * bs_m + tl.arange(0, bs_m)
+    offsets_n = pid_n * bs_n + tl.arange(0, bs_n)
+    offsets_k = tl.arange(0, bs_k)
 
     # Get offsets for input matrices `a` and `b`
     offsets_a = a_ptr + get_2d_offset(offsets_m, offsets_k, stride_am, stride_ak)
@@ -169,15 +169,15 @@ def kernel_matmul_naive(
     mask_b = get_2d_mask(offsets_k, offsets_n, k, n)
 
     # Initialise and iteratively update accumulator (loop over phases)
-    accumulator = tl.zeros((bm, bn), dtype=tl.float32)
-    for _ in range(0, k, bk):
+    accumulator = tl.zeros((bs_m, bs_n), dtype=tl.float32)
+    for _ in range(0, k, bs_k):
         a = tl.load(offsets_a, mask=mask_a)
         b = tl.load(offsets_b, mask=mask_b)
         accumulator += tl.dot(a, b)
 
         # Increase offsets so that the next iteration loads the next chunks
-        offsets_a += bk * stride_ak
-        offsets_b += bk * stride_bk
+        offsets_a += bs_k * stride_ak
+        offsets_b += bs_k * stride_bk
 
     c = c_ptr + get_2d_offset(offsets_m, offsets_n, stride_cm, stride_cn)
     mask = get_2d_mask(offsets_m, offsets_n, m, n)
@@ -191,7 +191,7 @@ def kernel_matmul_grouped(
     stride_am, stride_ak,
     stride_bk, stride_bn,
     stride_cm, stride_cn,
-    bm: tl.constexpr, bn: tl.constexpr, bk: tl.constexpr,
+    bs_m: tl.constexpr, bs_n: tl.constexpr, bs_k: tl.constexpr,
     group_size_m: tl.constexpr
 ):
     pid_m = tl.program_id(axis=0)
@@ -204,24 +204,24 @@ def kernel_matmul_grouped(
     pid_m, pid_n = tl.swizzle2d(pid_m, pid_n, num_pid_m, num_pid_n, group_size_m)
 
     # Get offsets in m/n/k dimensions
-    offsets_m = pid_m * bm + tl.arange(0, bm)
-    offsets_n = pid_n * bn + tl.arange(0, bn)
-    offsets_k = tl.arange(0, bk)
+    offsets_m = pid_m * bs_m + tl.arange(0, bs_m)
+    offsets_n = pid_n * bs_n + tl.arange(0, bs_n)
+    offsets_k = tl.arange(0, bs_k)
 
     # Get offsets for input matrices `a` and `b`
     offsets_a = a_ptr + get_2d_offset(offsets_m, offsets_k, stride_am, stride_ak)
     offsets_b = b_ptr + get_2d_offset(offsets_k, offsets_n, stride_bk, stride_bn)
 
     # Initialise and iteratively update accumulator (loop over phases)
-    accumulator = tl.zeros((bm, bn), dtype=tl.float32)
-    for _ in range(0, k, bk):
+    accumulator = tl.zeros((bs_m, bs_n), dtype=tl.float32)
+    for _ in range(0, k, bs_k):
         a = tl.load(offsets_a)
         b = tl.load(offsets_b)
         accumulator += tl.dot(a, b)
 
         # Increase offsets so that the next iteration loads the next chunks
-        offsets_a += bk * stride_ak
-        offsets_b += bk * stride_bk
+        offsets_a += bs_k * stride_ak
+        offsets_b += bs_k * stride_bk
 
     c = c_ptr + get_2d_offset(offsets_m, offsets_n, stride_cm, stride_cn)
     mask = get_2d_mask(offsets_m, offsets_n, m, n)
@@ -229,7 +229,7 @@ def kernel_matmul_grouped(
 
 
 def matmul(a, b, kernel_matmul, bs=16, group_size=None):
-    assert a.shape[1] == b.shape[0], "Input matrix shapes are incompatible for matrix multiplication"
+    assert a.shape[1] == b.shape[0], "Input shapes are incompatible for matmul."
     
     m, k = a.shape
     _, n = b.shape
@@ -238,7 +238,7 @@ def matmul(a, b, kernel_matmul, bs=16, group_size=None):
     c = torch.empty((m, n), device=a.device, dtype=torch.float32)
 
     # Define grid (this tells us how many program IDs horizontally and vertically)
-    grid = lambda meta: (triton.cdiv(m, meta["bm"]), triton.cdiv(n, meta["bn"]))
+    grid = lambda meta: (triton.cdiv(m, meta["bs_m"]), triton.cdiv(n, meta["bs_n"]))
 
     # Call kernel
     kernel_matmul[grid](
@@ -247,7 +247,7 @@ def matmul(a, b, kernel_matmul, bs=16, group_size=None):
         a.stride(0), a.stride(1),
         b.stride(0), b.stride(1),
         c.stride(0), c.stride(1),
-        bm=bs, bn=bs, bk=bs,
+        bs_m=bs, bs_n=bs, bs_k=bs,
         group_size_m=group_size,
     )
     return c
