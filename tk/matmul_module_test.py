@@ -18,17 +18,15 @@ class TestMatMul(unittest.TestCase):
         a = x.clone().detach().requires_grad_(True)
         b = y.clone().detach().requires_grad_(True)
 
-        # Compute result using the Triton-powered add_vectors_with_autograd
+        # Triton
         output = MatMul.apply(x, y)
+        output.sum().backward()
 
-        # Get gradients with Triton kernel in computation graph
-        loss = output.sum()
-        loss.backward()
-
-        # Get gradient with standard PyTorch
+        # PyTorch
         c = a @ b
         c.sum().backward()
 
+        # Compare
         self.assertTrue(torch.allclose(x.grad, a.grad, atol=1e-2))
         self.assertTrue(torch.allclose(y.grad, b.grad, atol=1e-2))
 
