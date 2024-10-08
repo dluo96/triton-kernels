@@ -10,7 +10,9 @@ from tk.matmul_autotuned import matmul_grouped_autotuned
 @pytest.mark.skipif(
     torch.cuda.is_available() is False, reason="Requires CUDA capable GPU"
 )
-@pytest.mark.parametrize("m, k, n", [(3, 4, 5), (30, 40, 50), (300, 400, 500)])
+@pytest.mark.parametrize(
+    "m, k, n", [(8, 16, 8), (3, 4, 5), (30, 40, 50), (300, 400, 500)]
+)
 @pytest.mark.parametrize("kernel", [kernel_matmul_naive, kernel_matmul_grouped])
 @pytest.mark.parametrize(
     "dtype, atol, rtol",

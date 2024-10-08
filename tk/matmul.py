@@ -151,7 +151,7 @@ def kernel_matmul_naive(
     bs_m: tl.constexpr,
     bs_n: tl.constexpr,
     bs_k: tl.constexpr,
-    group_size_m: tl.constexpr,  # Only need in grouped matmul, not here
+    group_size_m: tl.constexpr,  # Not needed (included for completeness)
 ):
     """Compute matrix multiplication of `a` (m, k) and `b` (k, n) to get output matrix (m, n)."""
     # Get program IDs which determine which section of the output matrix `c` (m x n) to compute
@@ -172,15 +172,19 @@ def kernel_matmul_naive(
     mask_n = offsets_n < n
     mask_k = offsets_k < k
 
-    # Combine masks
-    mask_a = get_2d_mask(offsets_m, offsets_k, m, k)
-    mask_b = get_2d_mask(offsets_k, offsets_n, k, n)
-
     # Initialise and iteratively update accumulator (loop over phases)
     accumulator = tl.zeros((bs_m, bs_n), dtype=tl.float32)
     for _k in range(0, tl.cdiv(k, bs_k)):
-        a = tl.load(offsets_a, mask=offsets_k[None, :] < k - _k * bs_k, other=0.0)
-        b = tl.load(offsets_b, mask=offsets_k[:, None] < k - _k * bs_k, other=0.0)
+        # Combine masks
+        mask_a = get_2d_mask(offsets_m, offsets_k, m, k - _k * bs_k)
+        mask_b = get_2d_mask(offsets_k, offsets_n, k - _k * bs_k, n)
+
+        a = tl.load(
+            offsets_a, mask=mask_a
+        )  # =offsets_k[None, :] < k - _k * bs_k, other=0.0)
+        b = tl.load(
+            offsets_b, mask=mask_b
+        )  # offsets_k[:, None] < k - _k * bs_k, other=0.0)
         accumulator = tl.dot(a, b, accumulator)
 
         # Increase offsets so that the next iteration loads the next chunks
