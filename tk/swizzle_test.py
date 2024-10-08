@@ -10,6 +10,22 @@ from tk.swizzle import kernel_swizzle
 @pytest.mark.parametrize(
     "num_blocks_m, num_blocks_n, group_size_m, expected_out",
     [
+        # Check that nothing happens when the group size is set to 1
+        pytest.param(
+            5,
+            4,
+            1,
+            torch.tensor(
+                [
+                    [0, 1, 2, 3],
+                    [4, 5, 6, 7],
+                    [8, 9, 10, 11],
+                    [12, 13, 14, 15],
+                    [16, 17, 18, 19],
+                ],
+                device="cuda",
+            ),
+        ),
         pytest.param(
             5,
             4,
