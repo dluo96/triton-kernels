@@ -1,49 +1,27 @@
-import functools
-import unittest
+from typing import Callable
 
+import pytest
 import torch
 
 from tk.matmul import kernel_matmul_grouped, kernel_matmul_naive, matmul
 from tk.matmul_autotuned import matmul_grouped_autotuned
 
 
-class TestMatmul(unittest.TestCase):
-    def setUp(self):
-        self.matmul_naive = functools.partial(matmul, kernel_matmul=kernel_matmul_naive)
-        self.matmul_grouped = functools.partial(
-            matmul, kernel_matmul=kernel_matmul_grouped
-        )
-
-    def tearDown(self):
-        torch.cuda.empty_cache()
-
-    def test_matmul_naive__small(self):
-        a = torch.ones((3, 4), dtype=torch.float32, device="cuda")
-        b = torch.ones((4, 5), dtype=torch.float32, device="cuda")
-        assert torch.allclose(self.matmul_naive(a, b), a @ b)
-
-    def test_matmul_naive__large(self):
-        a = torch.randn((300, 400), dtype=torch.float32, device="cuda")
-        b = torch.randn((400, 500), dtype=torch.float32, device="cuda")
-        assert torch.allclose(self.matmul_naive(a, b), a @ b, atol=0.1, rtol=0)
-
-    def test_matmul_grouped__small(self):
-        a = torch.ones((3, 4), dtype=torch.float32, device="cuda")
-        b = torch.ones((4, 5), dtype=torch.float32, device="cuda")
-        assert torch.allclose(self.matmul_grouped(a, b, group_size=32), a @ b)
-
-    def test_matmul_grouped__large(self):
-        a = torch.randn((300, 400), dtype=torch.float32, device="cuda")
-        b = torch.randn((400, 500), dtype=torch.float32, device="cuda")
-        assert torch.allclose(
-            self.matmul_grouped(a, b, group_size=32), a @ b, atol=0.1, rtol=0
-        )
-
-    def test_matmul_grouped_autotuned__small(self):
-        a = torch.ones((3, 4), dtype=torch.float32, device="cuda")
-        b = torch.ones((4, 5), dtype=torch.float32, device="cuda")
-        assert torch.allclose(matmul_grouped_autotuned(a, b), a @ b)
-
-
-if __name__ == "__main__":
-    unittest.main()
+@pytest.mark.skipif(
+    torch.cuda.is_available() is False, reason="Requires CUDA capable GPU"
+)
+@pytest.mark.parametrize("m, k, n", [(3, 4, 5), (30, 40, 50), (300, 400, 500)])
+@pytest.mark.parametrize("kernel", [kernel_matmul_naive, kernel_matmul_grouped])
+@pytest.mark.parametrize(
+    "dtype, atol, rtol",
+    [
+        (torch.bfloat16, 1e-7, 5e-2),
+        (torch.float32, 1e-8, 1e-6),
+    ],
+)
+def test_matmul(m: int, n: int, k: int, kernel: Callable, dtype, atol, rtol):
+    a = torch.ones((m, k), dtype=dtype, device="cuda")
+    b = torch.ones((k, n), dtype=dtype, device="cuda")
+    out = matmul(a, b, kernel_matmul=kernel, group_size=32)
+    expected_out = a @ b
+    assert torch.allclose(out, expected_out, atol=atol, rtol=rtol)

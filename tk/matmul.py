@@ -178,10 +178,10 @@ def kernel_matmul_naive(
 
     # Initialise and iteratively update accumulator (loop over phases)
     accumulator = tl.zeros((bs_m, bs_n), dtype=tl.float32)
-    for _ in range(0, k, bs_k):
-        a = tl.load(offsets_a, mask=mask_a)
-        b = tl.load(offsets_b, mask=mask_b)
-        accumulator += tl.dot(a, b)
+    for _k in range(0, tl.cdiv(k, bs_k)):
+        a = tl.load(offsets_a, mask=offsets_k[None, :] < k - _k * bs_k, other=0.0)
+        b = tl.load(offsets_b, mask=offsets_k[:, None] < k - _k * bs_k, other=0.0)
+        accumulator = tl.dot(a, b, accumulator)
 
         # Increase offsets so that the next iteration loads the next chunks
         offsets_a += bs_k * stride_ak
@@ -231,9 +231,9 @@ def kernel_matmul_grouped(
 
     # Initialise and iteratively update accumulator (loop over phases)
     accumulator = tl.zeros((bs_m, bs_n), dtype=tl.float32)
-    for _ in range(0, k, bs_k):
-        a = tl.load(offsets_a)
-        b = tl.load(offsets_b)
+    for _k in range(0, tl.cdiv(k, bs_k)):
+        a = tl.load(offsets_a, mask=offsets_k[None, :] < k - _k * bs_k, other=0.0)
+        b = tl.load(offsets_b, mask=offsets_k[:, None] < k - _k * bs_k, other=0.0)
         accumulator += tl.dot(a, b)
 
         # Increase offsets so that the next iteration loads the next chunks
@@ -252,7 +252,7 @@ def matmul(a, b, kernel_matmul, bs=16, group_size=None):
     _, n = b.shape
 
     # Allocate space for output
-    c = torch.empty((m, n), device=a.device, dtype=torch.float32)
+    c = torch.empty((m, n), device=a.device, dtype=a.dtype)
 
     # Define grid (this tells us how many program IDs horizontally and vertically)
     grid = lambda meta: (triton.cdiv(m, meta["bs_m"]), triton.cdiv(n, meta["bs_n"]))
