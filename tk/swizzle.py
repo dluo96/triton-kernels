@@ -1,4 +1,13 @@
-import torch
+"""
+Triton implementation of a 2D swizzle of blocks, which transforms the indices of the
+row-major (m, n) grid of blocks into the indices of a column-major matrix for each
+group of `group_size_m` rows.
+
+Based on the excellent GPU MODE talk ((https://www.youtube.com/watch?v=DdTsX6DQk24) by UmerHA
+and the accompanying notebook (https://github.com/gpu-mode/lectures/blob/main/lecture_014/A_Practitioners_Guide_to_Triton.ipynb).
+"""
+
+
 import triton
 import triton.language as tl
 
