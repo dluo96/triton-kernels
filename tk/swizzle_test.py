@@ -14,6 +14,8 @@ class TestSwizzle(unittest.TestCase):
         )
         z = -torch.ones_like(x)
         kernel_swizzle[(num_blocks_m, num_blocks_n)](x, z, group_sz=3)
+
+        # fmt: off
         expected_z = torch.tensor(
             [
                 [ 0,  3,  6,  9],
@@ -24,6 +26,7 @@ class TestSwizzle(unittest.TestCase):
             ],
             device=x.device,
         )
+        # fmt: on
         assert torch.equal(z, expected_z)
 
 
