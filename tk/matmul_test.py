@@ -11,6 +11,7 @@ torch.manual_seed(0)
 
 @pytest.mark.skipif(torch.cuda.is_available() is False, reason="Requires CUDA GPU!")
 @pytest.mark.parametrize("m, k, n", [(3, 4, 5), (2048, 128, 256), (13, 11, 17)])
+@pytest.mark.parametrize("block_size", [16])
 @pytest.mark.parametrize("group_size_m", [16, 32])
 @pytest.mark.parametrize("kernel", [kernel_matmul_naive, kernel_matmul_grouped])
 @pytest.mark.parametrize(
@@ -28,6 +29,7 @@ def test_matmul(
     m: int,
     n: int,
     k: int,
+    block_size: int,
     group_size_m: int,
     kernel: Callable,
     dtype: torch.dtype,
@@ -44,5 +46,5 @@ def test_matmul(
     )
     expected_out = torch.matmul(a, b)
 
-    out = matmul(a, b, kernel_matmul=kernel, group_size=group_size_m)
+    out = matmul(a, b, kernel_matmul=kernel, bs=block_size, group_size=group_size_m)
     assert torch.allclose(out, expected_out, atol=atol, rtol=rtol)
