@@ -181,7 +181,10 @@ def kernel_matmul_naive(
 
         a = tl.load(offsets_a, mask=offsets_k[None, :] < k - _k * bs_k, other=0.0)
         b = tl.load(offsets_b, mask=offsets_k[:, None] < k - _k * bs_k, other=0.0)
-        accumulator = tl.dot(a, b, accumulator)
+
+        # If the inputs are float32, Triton by default uses TF32 when the NVIDIA GPU
+        # has Tensor Cores.
+        accumulator += tl.dot(a, b)
 
         # Increase offsets so that the next iteration loads the next chunks
         offsets_a += bs_k * stride_ak
