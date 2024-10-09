@@ -9,7 +9,7 @@ from tk.matmul_autotuned import matmul_grouped_autotuned
 torch.manual_seed(0)
 
 
-@pytest.mark.skipif(torch.cuda.is_available() is False, reason="Requires CUDA GPU!")
+@pytest.mark.skipif(torch.cuda.is_available() is False, reason="Requires CUDA GPU")
 @pytest.mark.parametrize("m, k, n", [(3, 4, 5), (2048, 128, 256), (13, 11, 17)])
 @pytest.mark.parametrize("block_size", [16])
 @pytest.mark.parametrize("group_size_m", [16, 32])

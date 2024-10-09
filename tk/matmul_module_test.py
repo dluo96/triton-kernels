@@ -1,20 +1,35 @@
-import unittest
-
+import pytest
 import torch
 import torch.autograd
 
 from tk.matmul_module import MatMul
 
 
-class TestMatMul(unittest.TestCase):
-    def test_forward(self):
-        x = torch.ones(3, 4, device="cuda", requires_grad=False)
-        y = torch.ones(4, 5, device="cuda", requires_grad=False)
-        self.assertTrue(torch.allclose(MatMul.apply(x, y), x @ y))
+class TestMatMul:
+    @pytest.mark.skipif(torch.cuda.is_available() is False, reason="Requires CUDA GPU")
+    @pytest.mark.parametrize(
+        "dtype, atol, rtol",
+        [
+            (torch.float32, 1e-8, 1e-2),
+            (torch.bfloat16, 1e-10, 0),
+        ],
+    )
+    def test_forward(self, dtype: torch.dtype, atol: float, rtol: float):
+        x = torch.randn(3, 4, dtype=dtype, device="cuda", requires_grad=False)
+        y = torch.randn(4, 5, dtype=dtype, device="cuda", requires_grad=False)
+        assert torch.allclose(MatMul.apply(x, y), x @ y, atol=atol, rtol=rtol)
 
-    def test_backward(self):
-        x = torch.randn(3, 4, device="cuda", requires_grad=True)
-        y = torch.randn(4, 5, device="cuda", requires_grad=True)
+    @pytest.mark.skipif(torch.cuda.is_available() is False, reason="Requires CUDA GPU")
+    @pytest.mark.parametrize(
+        "dtype, atol, rtol",
+        [
+            (torch.float32, 1e-8, 1e-2),
+            (torch.bfloat16, 1e-10, 0),
+        ],
+    )
+    def test_backward(self, dtype: torch.dtype, atol: float, rtol: float):
+        x = torch.randn(3, 4, dtype=dtype, device="cuda", requires_grad=True)
+        y = torch.randn(4, 5, dtype=dtype, device="cuda", requires_grad=True)
         a = x.clone().detach().requires_grad_(True)
         b = y.clone().detach().requires_grad_(True)
 
@@ -27,9 +42,5 @@ class TestMatMul(unittest.TestCase):
         c.sum().backward()
 
         # Compare
-        self.assertTrue(torch.allclose(x.grad, a.grad, atol=1e-2))
-        self.assertTrue(torch.allclose(y.grad, b.grad, atol=1e-2))
-
-
-if __name__ == "__main__":
-    unittest.main()
+        assert torch.allclose(x.grad, a.grad, atol=atol, rtol=rtol)
+        assert torch.allclose(y.grad, b.grad, atol=atol, rtol=rtol)
