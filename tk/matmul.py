@@ -176,15 +176,11 @@ def kernel_matmul_naive(
     accumulator = tl.zeros((bs_m, bs_n), dtype=tl.float32)
     for _k in range(0, tl.cdiv(k, bs_k)):
         # Combine masks
-        mask_a = get_2d_mask(offsets_m, offsets_k, m, k - _k * bs_k)
-        mask_b = get_2d_mask(offsets_k, offsets_n, k - _k * bs_k, n)
+        # mask_a = get_2d_mask(offsets_m, offsets_k, m, k - _k * bs_k)
+        # mask_b = get_2d_mask(offsets_k, offsets_n, k - _k * bs_k, n)
 
-        a = tl.load(
-            offsets_a, mask=mask_a
-        )  # =offsets_k[None, :] < k - _k * bs_k, other=0.0)
-        b = tl.load(
-            offsets_b, mask=mask_b
-        )  # offsets_k[:, None] < k - _k * bs_k, other=0.0)
+        a = tl.load(offsets_a, mask=offsets_k[None, :] < k - _k * bs_k, other=0.0)
+        b = tl.load(offsets_b, mask=offsets_k[:, None] < k - _k * bs_k, other=0.0)
         accumulator = tl.dot(a, b, accumulator)
 
         # Increase offsets so that the next iteration loads the next chunks
