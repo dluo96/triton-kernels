@@ -27,11 +27,11 @@ def test_add_vectors_autograd_function(
     loss = out.sum()  # Arbitrary loss function so we can backprop
 
     # Forward pass (PyTorch)
-    out_torch = x_ref + y_ref
-    loss_ref = out_torch.sum()
+    out_ref = x_ref + y_ref
+    loss_ref = out_ref.sum()
 
     # Check forward
-    assert torch.allclose(out, out_torch, atol=atol, rtol=rtol)
+    assert torch.allclose(out, out_ref, atol=atol, rtol=rtol)
 
     # Backward pass (Triton)
     loss.backward()
@@ -41,4 +41,4 @@ def test_add_vectors_autograd_function(
 
     # Check that gradients match
     assert torch.allclose(x.grad, x_ref.grad, atol=atol, rtol=rtol)
-    assert torch.allclose(y.grad, x_ref.grad, atol=atol, rtol=rtol)
+    assert torch.allclose(y.grad, y_ref.grad, atol=atol, rtol=rtol)
