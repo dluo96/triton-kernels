@@ -19,7 +19,7 @@ matmul_grouped = functools.partial(matmul, kernel_matmul=kernel_matmul_grouped)
         line_arg="provider",
         line_vals=["naive", "grouped", "grouped-autotuned", "torch"],
         line_names=["Naive", "Grouped", "Grouped+Autotuned", "Torch"],
-        styles=[("green", "-"), ("blue", "-"), ("green", "--"), ("red", "-")],
+        styles=[("green", "-"), ("blue", "-"), ("blue", "--"), ("red", "-")],
         ylabel="GB/s",
         plot_name="matmul-performance",
         args={},

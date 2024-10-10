@@ -2,7 +2,7 @@ import torch
 import triton
 import triton.language as tl
 
-from tk.matmul import get_2d_mask, get_2d_offset
+from tk.matmul import kernel_matmul_grouped
 
 
 # fmt: off
@@ -38,38 +38,24 @@ def kernel_matmul_grouped_autotuned(
     bs_k: tl.constexpr,
     group_size_m: tl.constexpr,
 ):
-    pid_m = tl.program_id(axis=0)
-    pid_n = tl.program_id(axis=1)
-    num_pid_m = tl.num_programs(axis=0)
-    num_pid_n = tl.num_programs(axis=1)
-
-    # Swizzle: this reordering of blocks can increase L2-cache hit rate and
-    # thus make our kernel faster
-    pid_m, pid_n = tl.swizzle2d(pid_m, pid_n, num_pid_m, num_pid_n, group_size_m)
-
-    # Get offsets in m/n/k dimensions
-    offsets_m = pid_m * bs_m + tl.arange(0, bs_m)
-    offsets_n = pid_n * bs_n + tl.arange(0, bs_n)
-    offsets_k = tl.arange(0, bs_k)
-
-    # Get offsets for input matrices `a` and `b`
-    offsets_a = a_ptr + get_2d_offset(offsets_m, offsets_k, stride_am, stride_ak)
-    offsets_b = b_ptr + get_2d_offset(offsets_k, offsets_n, stride_bk, stride_bn)
-
-    # Initialise and iteratively update accumulator (loop over phases)
-    accumulator = tl.zeros((bs_m, bs_n), dtype=tl.float32)
-    for _ in range(0, k, bs_k):
-        a = tl.load(offsets_a)
-        b = tl.load(offsets_b)
-        accumulator += tl.dot(a, b)
-
-        # Increase offsets so that the next iteration loads the next chunks
-        offsets_a += bs_k * stride_ak
-        offsets_b += bs_k * stride_bk
-
-    c = c_ptr + get_2d_offset(offsets_m, offsets_n, stride_cm, stride_cn)
-    mask = get_2d_mask(offsets_m, offsets_n, m, n)
-    tl.store(c, accumulator, mask=mask)
+    kernel_matmul_grouped(
+        a_ptr,
+        b_ptr,
+        c_ptr,
+        m,
+        n,
+        k,
+        stride_am,
+        stride_ak,
+        stride_bk,
+        stride_bn,
+        stride_cm,
+        stride_cn,
+        bs_m,
+        bs_n,
+        bs_k,
+        group_size_m,
+    )
 
 
 def matmul_grouped_autotuned(a, b):
