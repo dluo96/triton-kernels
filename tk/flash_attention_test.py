@@ -7,6 +7,7 @@ from tk.flash_attention import FlashAttention
 torch.manual_seed(0)
 
 
+@pytest.mark.skipif(torch.cuda.is_available() is False, reason="Requires CUDA GPU")
 @pytest.mark.parametrize("B, H, T, D", [(1, 1, 2, 16)])
 @pytest.mark.parametrize(
     "dtype, atol, rtol",
