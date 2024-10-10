@@ -40,17 +40,17 @@ class TestAddVectors:
     ):
         x = torch.randn(B, T, dtype=dtype, device="cuda", requires_grad=True)
         y = torch.randn(B, T, dtype=dtype, device="cuda", requires_grad=True)
+        a = x.clone().detach().requires_grad_(True)
+        b = y.clone().detach().requires_grad_(True)
 
-        # Compute sum using Triton-powered add_vectors_with_autograd
+        # Forward and backward passes in Triton
         output = AddVectors.apply(x, y)
-
-        # Arbitrary loss function so we can do backprop
-        loss = output.sum()
+        loss = output.sum()  # Arbitrary loss function so we can backprop
         loss.backward()
 
-        # For `f = x + y`, ∂f/∂x = 1 and ∂f/∂y = 1
-        expected_grad_x = torch.ones_like(x)
-        expected_grad_y = torch.ones_like(y)
+        # Forward and backward passes in PyTorch
+        loss = (a + b).sum()
+        loss.backward()
 
-        assert torch.allclose(x.grad, expected_grad_x, atol=atol, rtol=rtol)
-        assert torch.allclose(y.grad, expected_grad_y, atol=atol, rtol=rtol)
+        assert torch.allclose(x.grad, a.grad, atol=atol, rtol=rtol)
+        assert torch.allclose(y.grad, b.grad, atol=atol, rtol=rtol)
