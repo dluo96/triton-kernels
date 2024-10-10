@@ -3,15 +3,23 @@ import torch
 
 from tk.vector_addition import add_vectors
 
+torch.manual_seed(0)
 
+
+@pytest.mark.skipif(torch.cuda.is_available() is False, reason="Requires CUDA GPU")
 @pytest.mark.parametrize("size", [1, 36, 100, 98432])
-def test_add(size: int):
-    torch.manual_seed(0)
+@pytest.mark.parametrize(
+    "dtype, atol, rtol",
+    [
+        (torch.bfloat16, 1e-8, 1e-5),
+        (torch.float32, 1e-8, 1e-5),
+    ],
+)
+def test_add(size: int, dtype: torch.dtype, atol: float, rtol: float):
+    x = torch.rand(size, dtype=dtype, device="cuda")
+    y = torch.rand(size, dtype=dtype, device="cuda")
 
-    x = torch.rand(size, device="cuda")
-    y = torch.rand(size, device="cuda")
+    out = add_vectors(x, y)
+    expected_out = x + y
 
-    out_torch = x + y
-    out_triton = add_vectors(x, y)
-
-    assert torch.allclose(out_torch, out_triton)
+    assert torch.allclose(out, expected_out, atol=atol, rtol=rtol)
