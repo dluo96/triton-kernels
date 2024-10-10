@@ -33,9 +33,12 @@ def test_add_vectors_autograd_function(
     # Check forward
     assert torch.allclose(out, out_torch, atol=atol, rtol=rtol)
 
-    # Backward pass
+    # Backward pass (Triton)
     loss.backward()
+
+    # Backward pass (PyTorch)
     loss_ref.backward()
 
+    # Check that gradients match
     assert torch.allclose(x.grad, x_ref.grad, atol=atol, rtol=rtol)
     assert torch.allclose(y.grad, x_ref.grad, atol=atol, rtol=rtol)
