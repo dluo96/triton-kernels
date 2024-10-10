@@ -28,17 +28,3 @@ class AddVectors(torch.autograd.Function):
 
         # Return gradients for each input (x and y)
         return grad_x, grad_y
-
-
-# The wrapper function to use the custom autograd function
-def add_vectors_with_autograd(x: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
-    return AddVectors.apply(x, y)
-
-
-if __name__ == "__main__":
-    print("hello")
-    x = torch.ones(64, 1000, device="cuda", requires_grad=True)
-    y = torch.ones(64, 1000, device="cuda", requires_grad=True)
-
-    z = add_vectors_with_autograd(x, y)
-    print(z)

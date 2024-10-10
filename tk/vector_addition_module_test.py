@@ -1,55 +1,56 @@
-import unittest
-
+import pytest
 import torch
 import torch.autograd
 
-from tk.vector_addition_module import add_vectors_with_autograd
+from tk.vector_addition_module import AddVectors
 
 
-class TestAddVectors(unittest.TestCase):
-    def test_forward(self):
-        # Create test tensors for the forward pass
-        x = torch.randn(64, 1000, device="cuda", requires_grad=False)
-        y = torch.randn(64, 1000, device="cuda", requires_grad=False)
+class TestAddVectors:
+    @pytest.mark.skipif(torch.cuda.is_available() is False, reason="Requires CUDA GPU")
+    @pytest.mark.parametrize("B, T", [(64, 1000), (331, 487)])
+    @pytest.mark.parametrize(
+        "dtype, atol, rtol",
+        [
+            (torch.bfloat16, 1e-8, 1e-5),
+            (torch.float32, 1e-8, 1e-5),
+        ],
+    )
+    def test_forward(
+        self, B: int, T: int, dtype: torch.dtype, atol: float, rtol: float
+    ):
+        x = torch.randn(B, T, dtype=dtype, device="cuda", requires_grad=False)
+        y = torch.randn(B, T, dtype=dtype, device="cuda", requires_grad=False)
 
-        # Compute result using the Triton-powered add_vectors_with_autograd
-        output = add_vectors_with_autograd(x, y)
+        out = AddVectors.apply(x, y)
+        expected_out = x + y
 
-        # Expected result from simple PyTorch addition
-        expected_output = x + y
+        assert torch.allclose(out, expected_out, atol=atol, rtol=rtol)
 
-        # Assert that the Triton kernel result matches the expected result
-        self.assertTrue(
-            torch.allclose(output, expected_output),
-            msg="The forward pass result does not match expected output.",
-        )
+    @pytest.mark.skipif(torch.cuda.is_available() is False, reason="Requires CUDA GPU")
+    @pytest.mark.parametrize("B, T", [(64, 1000), (331, 487)])
+    @pytest.mark.parametrize(
+        "dtype, atol, rtol",
+        [
+            (torch.bfloat16, 1e-8, 1e-5),
+            (torch.float32, 1e-8, 1e-5),
+        ],
+    )
+    def test_backward(
+        self, B: int, T: int, dtype: torch.dtype, atol: float, rtol: float
+    ):
+        x = torch.randn(B, T, dtype=dtype, device="cuda", requires_grad=True)
+        y = torch.randn(B, T, dtype=dtype, device="cuda", requires_grad=True)
 
-    def test_backward(self):
-        # Create test tensors for the backward pass
-        x = torch.randn(64, 1000, device="cuda", requires_grad=True)
-        y = torch.randn(64, 1000, device="cuda", requires_grad=True)
+        # Compute sum using Triton-powered add_vectors_with_autograd
+        output = AddVectors.apply(x, y)
 
-        # Compute result using the Triton-powered add_vectors_with_autograd
-        output = add_vectors_with_autograd(x, y)
-
-        # Arbitrary loss function
+        # Arbitrary loss function so we can do backprop
         loss = output.sum()
         loss.backward()
 
-        # The gradient of addition is just 1 for both inputs, so grad_x and grad_y should be ones
+        # For `f = x + y`, ∂f/∂x = 1 and ∂f/∂y = 1
         expected_grad_x = torch.ones_like(x)
         expected_grad_y = torch.ones_like(y)
 
-        # Assert that the computed gradients match the expected values (ones)
-        self.assertTrue(
-            torch.allclose(x.grad, expected_grad_x),
-            msg="The gradient for x does not match expected output.",
-        )
-        self.assertTrue(
-            torch.allclose(y.grad, expected_grad_y),
-            msg="The gradient for y does not match expected output.",
-        )
-
-
-if __name__ == "__main__":
-    unittest.main()
+        assert torch.allclose(x.grad, expected_grad_x, atol=atol, rtol=rtol)
+        assert torch.allclose(y.grad, expected_grad_y, atol=atol, rtol=rtol)
