@@ -26,9 +26,13 @@ def test_flash_attention_forward(
     atol: float,
     rtol: float,
 ):
-    q = torch.randn(B, H, T, D, dtype=dtype, device="cuda")
-    k = torch.randn(B, H, T, D, dtype=dtype, device="cuda")
-    v = torch.randn(B, H, T, D, dtype=dtype, device="cuda")
+    q = torch.randn(B, H, T, D, dtype=dtype, device="cuda", requires_grad=True)
+    k = torch.randn(B, H, T, D, dtype=dtype, device="cuda", requires_grad=True)
+    v = torch.randn(B, H, T, D, dtype=dtype, device="cuda", requires_grad=True)
+
+    q_torch = q.detach().clone().requires_grad_(True)
+    k_torch = k.detach().clone().requires_grad_(True)
+    v_torch = v.detach().clone().requires_grad_(True)
 
     # Define a softmax scaling factor
     sm_scale = 1.0 / (D**0.5)
@@ -37,6 +41,21 @@ def test_flash_attention_forward(
     out_triton = FlashAttention.apply(q, k, v, sm_scale)
 
     # Forward (PyTorch)
-    out_torch = F.scaled_dot_product_attention(q, k, v, is_causal=True)
+    out_torch = F.scaled_dot_product_attention(
+        q_torch, k_torch, v_torch, is_causal=True
+    )
 
     assert torch.allclose(out_triton, out_torch, atol=atol, rtol=rtol)
+
+    # Backward (Triton)
+    loss = out_triton.sum()
+    loss.backward()
+
+    # Backward (PyTorch)
+    loss_torch = out_torch.sum()
+    loss_torch.backward()
+
+    # TODO: make the below work
+    # assert torch.allclose(q.grad, q_.grad)
+    # assert torch.allclose(k.grad, k_.grad)
+    # assert torch.allclose(v.grad, v_.grad)
